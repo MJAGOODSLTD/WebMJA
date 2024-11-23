@@ -200,3 +200,4 @@ document.addEventListener("DOMContentLoaded", function () {
     document.documentElement.style.height = '100vh';
     document.body.style.overflow = 'hidden';
     document.body.style.height = '100vh';
+});
